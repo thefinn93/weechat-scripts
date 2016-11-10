@@ -4,8 +4,7 @@ _Note: Still in testing, if you're using this please get in touch so I can gathe
 
 
 A weechat script to log to a database. Requires
-[dataset](https://dataset.readthedocs.io/en/latest/) (`pip install dataset`)
-and a driver to connect to your database of choice (`pip install pycopg2`, etc).
+[dataset](https://dataset.readthedocs.io/en/latest/) (`pip install dataset`).
 
 
 ## Installation
@@ -29,5 +28,8 @@ of the table that the logs should go into. It defaults to `logs`, change if if y
 This script's got em! I just haven't found em yet. If you run into a bug, file an issue on this
 repo. If you fix it, file a pull request.
 
-## Improvements
-None planned, pull requests always welcome.
+## Possible Improvements
+If you want to build these or others, please don't hesitate to get in touch or just do it and open
+a pull request:
+
+* A custom buffer that allows querying the database
