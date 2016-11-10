@@ -18,7 +18,7 @@
 
 SCRIPT_NAME = 'dblog'
 SCRIPT_AUTHOR = 'Finn Herzfeld <finn@finn.io>'
-SCRIPT_VERSION = '0.1'
+SCRIPT_VERSION = '0.2'
 SCRIPT_LICENSE = 'GPL3'
 SCRIPT_DESC = 'Save chat logs to a database'
 
@@ -33,61 +33,85 @@ except:
 
 try:
     import dataset
+    import logging
+    import raven
 except ImportError as message:
     print('Missing package(s) for %s: %s' % (SCRIPT_NAME, message))
     import_ok = False
 
 default_options = {
     'database': "sqlite:///irclog.db",
-    'table': "logs"
+    'table': "logs",
+    'debug': '',
+    'sentry_dsn': ''
 }
 
 options = {}
 logtable = None
+sentry_args = {
+    "dsn": None,
+    "release": SCRIPT_VERSION
+}
+sentry = raven.Client(**sentry_args)
 
 
 def init_config():
-    global default_options, options, logtable
+    global default_options, options, logtable, sentry, sentry_args
     for option, default_value in default_options.items():
         if not weechat.config_is_set_plugin(option):
             weechat.config_set_plugin(option, default_value)
         options[option] = weechat.config_get_plugin(option)
+    if options.get('debug', '') != '':
+        logging.basicConfig(filename=options.get('debug'), level=logging.DEBUG)
+
+    sentry_args["dsn"] = options.get('sentry_dsn', '')
+    sentry = raven.Client(**sentry_args)
+
     db = dataset.connect(options.get('database'))
     logtable = db[options.get('table', "logs")]
 
 
 def config_changed(data, option, value):
-    init_config()
+    try:
+        init_config()
+    except Exception:
+        sentry.captureException()
     return weechat.WEECHAT_RC_OK
 
 
 def on_print(_, buf, timestamp, tags, displayed, highlighted, prefix, message):
     global logtable
-    row = dict()
-    row['buffer'] = buf
-    row['timestamp'] = int(timestamp)
-    for tag in tags.split(","):
-        kv = tag.split("_", 1)
-        if len(kv) > 1:
-            if kv[0] == "irc" and kv[1] == "smart_filter":
-                row['smart_filtered'] = True
-            else:
-                i = 1
-                while kv[0] in row:
-                    kv[0] = "%s_%d" % (kv[0], i)
-                    i += 1
-                row[kv[0]] = kv[1]
-    row['displayed'] = displayed == 1
-    row['highlighted'] = highlighted == 1
-    row['prefix'] = prefix
-    row['message'] = message
-    logtable.insert(row)
+    try:
+        row = dict()
+        row['buffer'] = buf
+        row['timestamp'] = int(timestamp)
+        for tag in tags.split(","):
+            kv = tag.split("_", 1)
+            if len(kv) > 1:
+                if kv[0] == "irc" and kv[1] == "smart_filter":
+                    row['smart_filtered'] = True
+                else:
+                    i = 1
+                    while kv[0] in row:
+                        kv[0] = "%s_%d" % (kv[0], i)
+                        i += 1
+                    row[kv[0]] = kv[1]
+        row['displayed'] = displayed == 1
+        row['highlighted'] = highlighted == 1
+        row['prefix'] = prefix
+        row['message'] = message
+        logtable.insert(row)
+    except Exception:
+        sentry.captureException()
     return weechat.WEECHAT_RC_OK
 
 if __name__ == '__main__' and import_ok:
-    if weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION,
-                        SCRIPT_LICENSE, SCRIPT_DESC, '', ''):
-        init_config()
-        weechat.hook_config('plugins.var.python.%s.*' % SCRIPT_NAME,
-                            'config_changed', '')
-        weechat.hook_print('', '', '', 1, 'on_print', '')
+    try:
+        if weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION,
+                            SCRIPT_LICENSE, SCRIPT_DESC, '', ''):
+            init_config()
+            weechat.hook_config('plugins.var.python.%s.*' % SCRIPT_NAME,
+                                'config_changed', '')
+            weechat.hook_print('', '', '', 1, 'on_print', '')
+    except Exception:
+        sentry.captureException()
