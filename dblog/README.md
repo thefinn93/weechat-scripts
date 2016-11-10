@@ -5,8 +5,7 @@ _Note: Still in testing, if you're using this please get in touch so I can gathe
 
 A weechat script to log to a database. Requires
 [dataset](https://dataset.readthedocs.io/en/latest/) (`pip install dataset`)
-and a driver to connect to your database of choice (`pip install sqlite3`,
-  `pip install pycopg2`, etc).
+and a driver to connect to your database of choice (`pip install pycopg2`, etc).
 
 
 ## Installation
