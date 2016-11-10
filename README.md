@@ -1,7 +1,8 @@
 # Weechat Scripts
 
 This is a collection of scripts I've written for Weechat. Feel free to use them and improve
-on them.
+on them. Please join me in `#thefinn93` on Freenode to discuss these scripts, dank maymays,
+or whatever else strikes your fancy.
 
 
 ## dblog
