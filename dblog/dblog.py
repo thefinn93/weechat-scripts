@@ -15,29 +15,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
+import weechat
+import dataset
+import logging
+import raven
 
 SCRIPT_NAME = 'dblog'
 SCRIPT_AUTHOR = 'Finn Herzfeld <finn@finn.io>'
-SCRIPT_VERSION = '0.2'
+SCRIPT_VERSION = '0.3'
 SCRIPT_LICENSE = 'GPL3'
 SCRIPT_DESC = 'Save chat logs to a database'
 
-import_ok = True
-
-try:
-    import weechat
-except:
-    print('This script must be run under WeeChat.')
-    print('Get WeeChat now at: http://www.weechat.org/')
-    import_ok = False
-
-try:
-    import dataset
-    import logging
-    import raven
-except ImportError as message:
-    print('Missing package(s) for %s: %s' % (SCRIPT_NAME, message))
-    import_ok = False
 
 default_options = {
     'database': "sqlite:///irclog.db",
@@ -75,6 +63,7 @@ def config_changed(data, option, value):
     try:
         init_config()
     except Exception:
+        logging.exception("Failed to reload config")
         sentry.captureException()
     return weechat.WEECHAT_RC_OK
 
@@ -88,11 +77,14 @@ def on_print(_, buf, timestamp, tags, displayed, highlighted, prefix, message):
         for tag in tags.split(","):
             kv = tag.split("_", 1)
             if len(kv) > 1:
-                if kv[0] == "irc" and kv[1] == "smart_filter":
-                    row['smart_filtered'] = True
+                if kv[0] == "irc" and kv[1] in ["smart_filter", "numeric"]:
+                    row[kv[1]] = True
+                elif kv[0] == "no":
+                    row[kv[1]] = False
                 else:
                     i = 1
                     while kv[0] in row:
+                        logging.info("Duplicate tag name! %s (#%d)", tag, i)
                         kv[0] = "%s_%d" % (kv[0], i)
                         i += 1
                     row[kv[0]] = kv[1]
@@ -102,10 +94,11 @@ def on_print(_, buf, timestamp, tags, displayed, highlighted, prefix, message):
         row['message'] = message
         logtable.insert(row)
     except Exception:
+        logging.exception("Failed to store message")
         sentry.captureException()
     return weechat.WEECHAT_RC_OK
 
-if __name__ == '__main__' and import_ok:
+if __name__ == '__main__':
     try:
         if weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION,
                             SCRIPT_LICENSE, SCRIPT_DESC, '', ''):
@@ -114,4 +107,5 @@ if __name__ == '__main__' and import_ok:
                                 'config_changed', '')
             weechat.hook_print('', '', '', 1, 'on_print', '')
     except Exception:
+        logging.exception("Failed to initialize plugin.")
         sentry.captureException()
