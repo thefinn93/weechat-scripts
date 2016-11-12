@@ -36,6 +36,7 @@ default_options = {
 
 options = {}
 logtable = None
+db = None
 sentry_args = {
     "dsn": None,
     "release": SCRIPT_VERSION
@@ -44,7 +45,7 @@ sentry = raven.Client(**sentry_args)
 
 
 def init_config():
-    global default_options, options, logtable, sentry, sentry_args
+    global default_options, options, logtable, db, sentry, sentry_args
     for option, default_value in default_options.items():
         if not weechat.config_is_set_plugin(option):
             weechat.config_set_plugin(option, default_value)
@@ -98,10 +99,15 @@ def on_print(_, buf, timestamp, tags, displayed, highlighted, prefix, message):
         sentry.captureException()
     return weechat.WEECHAT_RC_OK
 
+
+def shutdown():
+    db.engine.dispose()
+
+
 if __name__ == '__main__':
     try:
         if weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION,
-                            SCRIPT_LICENSE, SCRIPT_DESC, '', ''):
+                            SCRIPT_LICENSE, SCRIPT_DESC, 'shutdown', ''):
             init_config()
             weechat.hook_config('plugins.var.python.%s.*' % SCRIPT_NAME,
                                 'config_changed', '')
